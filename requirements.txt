@@ -1,0 +1,7 @@
+requests>=2.31.0
+python-dotenv>=1.0.0
+# Optional, only needed if you set ANTHROPIC_API_KEY for narrative summaries:
+anthropic>=0.34.0
+# Optional, only needed if you enable LIVE_TRADING:
+# solders>=0.20.0
+# solana>=0.34.0

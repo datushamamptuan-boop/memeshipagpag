@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal — Memecoin Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d13; --panel:#12161f; --panel-2:#161b26; --border:#232939;
+    --text:#e7ebf3; --muted:#6b7284; --muted-2:#4b5163;
+    --gold:#e8b04b; --gold-dim:#8a6a2c;
+    --green:#3ecf8e; --red:#f16565;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 500px at 15% -10%, rgba(232,176,75,0.07), transparent),
+      var(--bg);
+    color:var(--text); font-family:'JetBrains Mono',monospace; padding:0 0 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; }
+
+  /* ---- Ticker ---- */
+  .ticker-wrap{
+    background:var(--panel-2); border-bottom:1px solid var(--border);
+    overflow:hidden; white-space:nowrap; position:relative; height:34px;
+  }
+  .ticker-wrap::before, .ticker-wrap::after{
+    content:""; position:absolute; top:0; bottom:0; width:60px; z-index:2; pointer-events:none;
+  }
+  .ticker-wrap::before{ left:0; background:linear-gradient(90deg, var(--panel-2), transparent); }
+  .ticker-wrap::after{ right:0; background:linear-gradient(270deg, var(--panel-2), transparent); }
+  .ticker{
+    display:inline-flex; gap:36px; align-items:center; height:34px;
+    padding-left:100%; animation:scroll 40s linear infinite;
+  }
+  .ticker span{ font-size:12px; color:var(--muted); }
+  .ticker b{ color:var(--text); }
+  .ticker .up{ color:var(--green); } .ticker .down{ color:var(--red); }
+  @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-100%);} }
+
+  /* ---- Header ---- */
+  header{ padding:26px 24px 18px; max-width:1080px; margin:0 auto; }
+  .title-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  h1{ font-size:26px; font-weight:700; margin:0; letter-spacing:-0.02em; }
+  h1 .dot{ color:var(--gold); }
+  .meta{ color:var(--muted); font-size:12px; margin-top:6px; }
+
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .pill.confirm{ background:rgba(62,207,142,0.12); color:var(--green); border:1px solid rgba(62,207,142,0.3); }
+  .pill.auto{ background:rgba(241,101,101,0.12); color:var(--red); border:1px solid rgba(241,101,101,0.3); }
+  .pill.dry::after{ content:" · SIMULATED"; opacity:.7; font-weight:500; }
+  .pill-dot{ width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 8px currentColor; }
+
+  .btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 14px; border-radius:9px;
+    cursor:pointer; transition:.15s border-color, .15s transform;
+  }
+  .btn:hover{ border-color:var(--gold-dim); }
+  .btn:active{ transform:scale(.97); }
+  .btn.primary{ background:var(--gold); color:#1a1400; border-color:var(--gold); font-weight:700; }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn.danger{ background:transparent; color:var(--red); border-color:rgba(241,101,101,0.4); }
+
+  main{ max-width:1080px; margin:0 auto; padding:0 24px; }
+  section{ margin-top:30px; }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+  .section-head h2{ font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin:0; }
+  .count{ font-size:11px; color:var(--muted-2); }
+
+  /* ---- Pending confirmation ---- */
+  .confirm-card{
+    background:linear-gradient(180deg, rgba(232,176,75,0.08), transparent), var(--panel);
+    border:1px solid rgba(232,176,75,0.35); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:14px;
+    animation:pulseGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow{
+    0%,100%{ box-shadow:0 0 0 rgba(232,176,75,0); }
+    50%{ box-shadow:0 0 24px rgba(232,176,75,0.12); }
+  }
+  .confirm-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .confirm-top .sym{ font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; }
+  .confirm-score{ font-size:22px; font-weight:700; color:var(--gold); }
+  .confirm-meta{ font-size:11px; color:var(--muted); margin-top:4px; }
+  .narrative{ font-size:12.5px; color:#b9c0d1; line-height:1.55; margin:12px 0 14px; border-left:2px solid var(--gold-dim); padding-left:10px; }
+  .confirm-actions{ display:flex; gap:10px; }
+  .timeout-bar{ height:3px; background:var(--border); border-radius:2px; margin-top:14px; overflow:hidden; }
+  .timeout-bar > div{ height:100%; background:var(--gold-dim); }
+
+  /* ---- Cards grid ---- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+  .card .sym{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; }
+  .score-badge{ font-weight:700; font-size:15px; }
+  .score-badge.high{ color:var(--green); } .score-badge.mid{ color:var(--gold); } .score-badge.low{ color:var(--red); }
+  .bars{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+  .bar-row{ display:flex; align-items:center; gap:8px; font-size:10.5px; color:var(--muted); }
+  .bar-row .label{ width:64px; flex-shrink:0; }
+  .bar-track{ flex:1; height:5px; background:var(--panel-2); border-radius:3px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:3px; background:var(--gold); }
+  .bar-row .val{ width:26px; text-align:right; color:var(--text); }
+  .card .liq{ margin-top:10px; font-size:11px; color:var(--muted-2); }
+
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
+  th{ color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .pos{ color:var(--green); } .neg{ color:var(--red); }
+  .empty{ color:var(--muted-2); font-size:12.5px; padding:16px 0; text-align:center; border:1px dashed var(--border); border-radius:var(--radius); }
+
+  .paused-banner{ background:rgba(241,101,101,0.08); border:1px solid rgba(241,101,101,0.3); color:var(--red); border-radius:10px; padding:10px 14px; font-size:12px; margin-bottom:16px; }
+
+  /* ---- Settings drawer ---- */
+  .settings-toggle{ position:fixed; bottom:20px; right:20px; z-index:10; }
+  .drawer{
+    position:fixed; bottom:0; right:0; top:0; width:340px; max-width:90vw;
+    background:var(--panel); border-left:1px solid var(--border); padding:20px;
+    transform:translateX(100%); transition:transform .2s ease; z-index:20; overflow-y:auto;
+  }
+  .drawer.open{ transform:translateX(0); }
+  .drawer h3{ font-size:14px; margin:0 0 4px; }
+  .drawer p{ font-size:11.5px; color:var(--muted); line-height:1.5; }
+  .drawer input{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:6px; }
+  .drawer label{ font-size:11px; color:var(--muted); display:block; margin-top:14px; }
+  .drawer .save-row{ margin-top:16px; display:flex; gap:8px; }
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:15; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+  .disclaimer{ font-size:11px; color:var(--muted-2); border-top:1px solid var(--border); padding-top:14px; margin-top:34px; line-height:1.6; }
+  #toast{ position:fixed; bottom:20px; left:20px; background:var(--panel-2); border:1px solid var(--border); padding:10px 16px; border-radius:9px; font-size:12px; opacity:0; transform:translateY(8px); transition:.2s; z-index:30; }
+  #toast.show{ opacity:1; transform:translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap"><div class="ticker" id="ticker"><span>Loading signal feed…</span></div></div>
+
+<header>
+  <div class="title-row">
+    <h1>Signal<span class="dot">.</span></h1>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span id="mode-pill" class="pill confirm"><span class="pill-dot"></span>—</span>
+      <button class="btn" onclick="toggleDrawer(true)">⚙ Settings</button>
+    </div>
+  </div>
+  <div class="meta">Last scan: <span id="last-run">—</span> · Bankroll: <span id="capital">—</span></div>
+</header>
+
+<main>
+  <div id="paused-banner" style="display:none" class="paused-banner"></div>
+
+  <section id="confirm-section" style="display:none">
+    <div class="section-head"><h2>Awaiting your call</h2></div>
+    <div id="pending-list"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Open Positions</h2></div>
+    <div id="open-positions" class="empty">Loading…</div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Scanner Candidates</h2><span class="count" id="cand-count"></span></div>
+    <div id="candidates" class="grid"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Trade History</h2></div>
+    <table>
+      <thead><tr><th>Token</th><th>Reason</th><th>PnL %</th><th>PnL $</th><th>Closed</th></tr></thead>
+      <tbody id="closed-trades"></tbody>
+    </table>
+  </section>
+
+  <div class="disclaimer">
+    Signal surfaces heuristic risk scores — safety checks, liquidity, socials, and smart-wallet
+    activity — and applies stop-loss / take-profit rules. It is not financial advice, cannot
+    predict price, and cannot guarantee a rug wasn't missed. In Auto mode, trades execute without
+    a per-trade confirmation but are still bounded by the daily loss cap and losing-streak cooldown
+    configured in your repo. You are trading at your own risk.
+  </div>
+</main>
+
+<div class="overlay" id="overlay" onclick="toggleDrawer(false)"></div>
+<div class="drawer" id="drawer">
+  <h3>GitHub connection</h3>
+  <p>Confirming or skipping a trade writes a decision file to your repo and pings the bot to run
+     immediately. Needs a token with write access — kept only in this browser, never sent anywhere
+     but api.github.com.</p>
+
+  <label>Repo owner</label>
+  <input id="cfg-owner" placeholder="your-username">
+  <label>Repo name</label>
+  <input id="cfg-repo" placeholder="memecoin-tracker">
+  <label>Branch</label>
+  <input id="cfg-branch" placeholder="main" value="main">
+  <label>Personal access token</label>
+  <input id="cfg-token" type="password" placeholder="ghp_… (fine-grained, Contents + Actions write on this repo only)">
+
+  <div class="save-row">
+    <button class="btn primary" onclick="saveSettings()">Save</button>
+    <button class="btn danger" onclick="clearSettings()">Clear</button>
+  </div>
+  <p style="margin-top:18px">Don't want to confirm from here at all? Set <code>AUTO_TRADE_MODE=auto</code> as a
+  repo variable/secret instead — the bot will trade the moment a signal clears, no button needed.</p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const STATE_URL = "../data/state.json";
+let LAST_STATE = null;
+
+function loadSettings(){
+  return JSON.parse(localStorage.getItem("signal_gh_config") || "{}");
+}
+function saveSettings(){
+  const cfg = {
+    owner: document.getElementById("cfg-owner").value.trim(),
+    repo: document.getElementById("cfg-repo").value.trim(),
+    branch: document.getElementById("cfg-branch").value.trim() || "main",
+    token: document.getElementById("cfg-token").value.trim(),
+  };
+  localStorage.setItem("signal_gh_config", JSON.stringify(cfg));
+  toggleDrawer(false);
+  showToast("Settings saved to this browser.");
+}
+function clearSettings(){
+  localStorage.removeItem("signal_gh_config");
+  ["cfg-owner","cfg-repo","cfg-branch","cfg-token"].forEach(id => document.getElementById(id).value = "");
+  showToast("Cleared.");
+}
+function toggleDrawer(open){
+  document.getElementById("drawer").classList.toggle("open", open);
+  document.getElementById("overlay").classList.toggle("open", open);
+}
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3200);
+}
+(function hydrateSettingsForm(){
+  const cfg = loadSettings();
+  if (cfg.owner) document.getElementById("cfg-owner").value = cfg.owner;
+  if (cfg.repo) document.getElementById("cfg-repo").value = cfg.repo;
+  if (cfg.branch) document.getElementById("cfg-branch").value = cfg.branch;
+  if (cfg.token) document.getElementById("cfg-token").value = cfg.token;
+})();
+
+async function ghApi(path, options={}){
+  const cfg = loadSettings();
+  if (!cfg.owner || !cfg.repo || !cfg.token) throw new Error("missing_config");
+  const res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}${path}`, {
+    ...options,
+    headers: {
+      "Authorization": `Bearer ${cfg.token}`,
+      "Accept": "application/vnd.github+json",
+      ...(options.headers||{}),
+    },
+  });
+  return res;
+}
+
+async function submitDecision(requestId, action, btnEl){
+  const cfg = loadSettings();
+  if (!cfg.owner || !cfg.repo || !cfg.token){
+    toggleDrawer(true);
+    showToast("Connect your repo in Settings first.");
+    return;
+  }
+  btnEl.disabled = true;
+  btnEl.textContent = "Sending…";
+  try {
+    const path = "/contents/data/pending_actions.json";
+    let sha = null, existing = [];
+    const getRes = await ghApi(path);
+    if (getRes.status === 200){
+      const data = await getRes.json();
+      sha = data.sha;
+      existing = JSON.parse(decodeURIComponent(escape(atob(data.content))) || "[]");
+    }
+    existing.push({request_id: requestId, action, ts: Date.now()});
+    const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(existing, null, 2))));
+    const putRes = await ghApi(path, {
+      method: "PUT",
+      body: JSON.stringify({
+        message: `dashboard: ${action} ${requestId}`,
+        content: newContent,
+        sha: sha || undefined,
+        branch: cfg.branch,
+      }),
+    });
+    if (!putRes.ok) throw new Error("write_failed");
+
+    // Nudge the bot to run right now instead of waiting for the next cron tick
+    await ghApi(`/actions/workflows/scan.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: cfg.branch }),
+    }).catch(() => {});
+
+    showToast(action === "confirm" ? "Confirmed — bot is executing now." : "Skipped.");
+    setTimeout(load, 4000);
+  } catch (e) {
+    showToast("Couldn't reach GitHub — check your token/settings.");
+    btnEl.disabled = false;
+    btnEl.textContent = action === "confirm" ? "✅ Confirm" : "✕ Skip";
+  }
+}
+
+function scoreClass(v){ return v >= 70 ? "high" : v >= 45 ? "mid" : "low"; }
+
+function barRow(label, value){
+  return `<div class="bar-row"><span class="label">${label}</span>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,value)}%"></div></div>
+    <span class="val">${value}</span></div>`;
+}
+
+function renderTicker(candidates){
+  const el = document.getElementById("ticker");
+  if (!candidates || !candidates.length){ el.innerHTML = "<span>No candidates scored yet this cycle</span>"; return; }
+  const items = candidates.map(c => {
+    const cls = c.composite_score >= 70 ? "up" : c.composite_score < 45 ? "down" : "";
+    return `<span>${c.symbol} <b class="${cls}">${c.composite_score}</b></span>`;
+  });
+  el.innerHTML = items.concat(items).join(""); // duplicate for seamless loop
+}
+
+function renderPending(state){
+  const section = document.getElementById("confirm-section");
+  const list = document.getElementById("pending-list");
+  const pending = state.pending_confirmations || [];
+  if (!pending.length){ section.style.display = "none"; return; }
+  section.style.display = "block";
+
+  list.innerHTML = pending.map(p => {
+    const elapsed = (Date.now()/1000) - p.proposed_at;
+    const timeoutS = (window.CONFIRM_TIMEOUT_MIN || 10) * 60;
+    const pctLeft = Math.max(0, 100 - (elapsed/timeoutS*100));
+    return `
+      <div class="confirm-card">
+        <div class="confirm-top">
+          <div>
+            <div class="sym">${p.symbol}</div>
+            <div class="confirm-meta">Proposed size $${p.proposed_size_usd} · ${p.mint.slice(0,4)}…${p.mint.slice(-4)}</div>
+          </div>
+          <div class="confirm-score">${p.composite_score}<span style="font-size:11px;color:var(--muted)">/100</span></div>
+        </div>
+        <div class="narrative">${p.narrative || "No AI narrative configured — set ANTHROPIC_API_KEY to enable."}</div>
+        <div class="confirm-actions">
+          <button class="btn primary" onclick="submitDecision('${p.request_id}','confirm',this)">✅ Confirm</button>
+          <button class="btn danger" onclick="submitDecision('${p.request_id}','skip',this)">✕ Skip</button>
+        </div>
+        <div class="timeout-bar"><div style="width:${pctLeft}%"></div></div>
+      </div>`;
+  }).join("");
+}
+
+async function load(){
+  let state;
+  try {
+    const res = await fetch(STATE_URL + "?t=" + Date.now());
+    state = await res.json();
+    LAST_STATE = state;
+  } catch(e){
+    document.getElementById("open-positions").textContent = "No data yet — the bot hasn't completed a run. Trigger it from the Actions tab.";
+    return;
+  }
+
+  const modePill = document.getElementById("mode-pill");
+  const isAuto = state.mode === "auto";
+  modePill.className = "pill " + (isAuto ? "auto" : "confirm") + (state.dry_run ? " dry" : "");
+  modePill.innerHTML = `<span class="pill-dot"></span>${isAuto ? "AUTO" : "CONFIRM"}`;
+
+  document.getElementById("last-run").textContent = state.last_run ? new Date(state.last_run*1000).toLocaleString() : "never";
+  document.getElementById("capital").textContent = state.total_capital_usd ? `$${state.total_capital_usd}` : "—";
+
+  const bannerEl = document.getElementById("paused-banner");
+  if (state.paused_reason){ bannerEl.style.display = "block"; bannerEl.textContent = "⏸ " + state.paused_reason; }
+  else bannerEl.style.display = "none";
+
+  renderTicker(state.candidates);
+  renderPending(state);
+
+  const openEl = document.getElementById("open-positions");
+  openEl.className = "";
+  if (!state.open_positions || !state.open_positions.length){
+    openEl.innerHTML = '<div class="empty">No open positions right now.</div>';
+  } else {
+    openEl.innerHTML = '<div class="grid">' + state.open_positions.map(p => `
+      <div class="card">
+        <div class="sym">${p.token_symbol}</div>
+        <div class="liq">Entry $${Number(p.entry_price).toPrecision(4)} · Size $${p.entry_usd}</div>
+        <div class="liq">Score at entry: ${p.composite_score_at_entry}</div>
+      </div>`).join("") + '</div>';
+  }
+
+  const cands = state.candidates || [];
+  document.getElementById("cand-count").textContent = cands.length ? `${cands.length} scanned` : "";
+  document.getElementById("candidates").innerHTML = cands.map(c => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="sym">${c.symbol}</span>
+        <span class="score-badge ${scoreClass(c.composite_score)}">${c.composite_score}</span>
+      </div>
+      <div class="bars">
+        ${barRow("Safety", c.safety_score)}
+        ${barRow("Market", c.market_score)}
+        ${barRow("Social", c.social_score)}
+        ${barRow("Wallets", c.wallet_score)}
+      </div>
+      <div class="liq">Liquidity $${Number(c.liquidity_usd).toLocaleString()}</div>
+    </div>`).join("") || '<div class="empty">No candidates scored yet.</div>';
+
+  const closed = (state.closed_trades || []).slice().reverse();
+  document.getElementById("closed-trades").innerHTML = closed.map(t => `
+    <tr>
+      <td>${t.token_symbol}</td>
+      <td>${t.exit_reason}</td>
+      <td class="${t.pnl_pct >= 0 ? 'pos' : 'neg'}">${t.pnl_pct}%</td>
+      <td class="${t.pnl_usd >= 0 ? 'pos' : 'neg'}">$${t.pnl_usd}</td>
+      <td>${new Date(t.closed_at*1000).toLocaleString()}</td>
+    </tr>`).join("") || '<tr><td colspan="5" class="empty">No closed trades yet.</td></tr>';
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
